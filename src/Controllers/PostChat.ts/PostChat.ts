@@ -33,8 +33,8 @@ export const ClaudeConexionController = async (req: Request, res: Response) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
-    res.setHeader("Access-Control-Allow-Origin", "*"); // <-- agrega esto
-    res.setHeader("X-Accel-Buffering", "no"); // <-- y esto, evita buffering
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders();
 
     // Enviar un mensaje inicial para verificar que el cliente recibe datos
@@ -115,10 +115,11 @@ export const ClaudeConexionController = async (req: Request, res: Response) => {
     }
   }
 };
-
 export const ClaudeGetStreamController = async (req: Request, res: Response) => {
-  const message = String(req.query.message || "");
-  const historyB64 = String(req.query.history || "");
+  const { message, history: historyB64 } = req.query as {
+    message?: string;
+    history?: string;
+  };
 
   if (!message) {
     handleError(res, 400, "Message_require", "Message required");
@@ -126,6 +127,7 @@ export const ClaudeGetStreamController = async (req: Request, res: Response) => 
   }
 
   let history: Array<{ role: "user" | "assistant"; content: string }> = [];
+
   if (historyB64) {
     try {
       const decoded = Buffer.from(historyB64, "base64").toString("utf8");
@@ -144,7 +146,10 @@ export const ClaudeGetStreamController = async (req: Request, res: Response) => 
     res.setTimeout?.(0);
     req.socket?.setKeepAlive?.(true);
 
-    console.log("SSE GET connection opened", { ip: req.ip || req.socket?.remoteAddress, port: req.socket?.remotePort });
+    console.log("SSE GET connection opened", {
+      ip: req.ip || req.socket?.remoteAddress,
+      port: req.socket?.remotePort,
+    });
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -153,26 +158,22 @@ export const ClaudeGetStreamController = async (req: Request, res: Response) => 
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders?.();
 
-    // initial ping
-    try {
-      res.write(`data: ${JSON.stringify({ type: "info", text: "connected" })}\n\n`);
-      (res as any).flush?.();
-    } catch {}
+    // ping inicial
+    res.write(`data: ${JSON.stringify({ type: "info", text: "connected" })}\n\n`);
 
     const heartbeat = setInterval(() => {
-      if (!isClosed) res.write(': heartbeat\n\n');
-    }, 1000);
+      if (!isClosed) res.write(": heartbeat\n\n");
+    }, 15000);
 
     req.on("close", () => {
       isClosed = true;
       clearInterval(heartbeat);
-      console.log(new Date().toISOString(), "🔌 Client disconnected (GET)");
+      console.log("🔌 Client disconnected (GET)");
     });
 
     const sendChunk = (chunk: string) => {
       if (isClosed) return;
       res.write(`data: ${JSON.stringify({ type: "text", text: chunk })}\n\n`);
-      try { (res as any).flush?.(); } catch {}
     };
 
     const done = () => {
@@ -184,7 +185,7 @@ export const ClaudeGetStreamController = async (req: Request, res: Response) => 
     const onStreamError = (err: unknown) => {
       console.error("Claude stream error (GET):", err);
       if (isClosed) return;
-      res.write(`data: ${JSON.stringify({ type: "error", message: "Stream error" })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: "error" })}\n\n`);
       res.end();
     };
 

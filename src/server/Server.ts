@@ -7,7 +7,7 @@ export class Server {
   private app: Application;
   private port: string;
   private paths: serverPaths;
-  private isReady: Promise<void>; // Para rastrear si la inicialización terminó
+  private isReady: Promise<void>;
 
   constructor() {
     this.app = express();
@@ -16,7 +16,6 @@ export class Server {
       chat: "/api/chat",
     };
 
-    // Almacenamos la promesa de inicialización
     this.isReady = this.initialize();
   }
 
@@ -41,9 +40,6 @@ export class Server {
     const httpServer: any = this.app.listen(this.port, () => {
       console.log(`Server up on ${this.port}`);
     });
-
-    // Evita que Node cierre conexiones largas (ej. SSE) por timeout predeterminado
-    // 0 deshabilita el timeout de inactividad en el server
     try {
       httpServer.timeout = 0;
     } catch (err) {

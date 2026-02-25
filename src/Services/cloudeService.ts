@@ -71,30 +71,27 @@ ACCIONES POR TIPO DE CARD (usa exactamente estas):
 
 Nueva Cotización:
 "actions": [
-  { "label": "✓ Crear cotización", "action": "create" },
-  { "label": "✏️ Editar campos", "action": "edit" },
-  { "label": "✕ Descartar", "action": "dismiss" }
+  { "label": "✓ Crear cotización", "action": "create_quote" },  
+  { "label": "✕ Descartar", "action": "discard" }               
 ]
 
 Follow-up Email:
 "actions": [
-  { "label": "📤 Enviar", "action": "send" },
-  { "label": "✏️ Editar borrador", "action": "edit" },
-  { "label": "✕ Descartar", "action": "dismiss" }
+  { "label": "📤 Enviar", "action": "send_email" },             
+  { "label": "✕ Descartar", "action": "discard" }               
 ]
 
 Flag / Alerta:
 "actions": [
-  { "label": "✓ Acknowledged", "action": "ack" },
-  { "label": "↑ Escalar", "action": "escalar" },
-  { "label": "✕ Descartar", "action": "dismiss" }
+  { "label": "✓ Acknowledged", "action": "acknowledge_flag" },  
+  { "label": "↑ Escalar", "action": "escalate" },               
+  { "label": "✕ Descartar", "action": "discard" }               
 ]
 
 Supplier Match:
 "actions": [
-  { "label": "📞 Contactar", "action": "contactar" },
-  { "label": "👁 Ver perfil", "action": "perfil" },
-  { "label": "✕ Descartar", "action": "dismiss" }
+  { "label": "📞 Contactar", "action": "contact_supplier" },    
+  { "label": "✕ Descartar", "action": "discard" }               
 ]
 
 Si el mensaje no está relacionado con operaciones o supply chain,
