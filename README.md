@@ -2,7 +2,7 @@
 
 Proxy server en Node.js + Express que conecta el frontend con la API de Claude (Anthropic). Maneja el streaming via Server-Sent Events y aplica el system prompt de operaciones de Radii.
 
-> **Repo frontend:** [test_cloude_frontend](https://github.com/tu-usuario/test_cloude_frontend)
+> **Repo frontend:** [test_cloude_frontend](https://github.com/Alejandroho02/test_cloude_frontend)
 
 ---
 
