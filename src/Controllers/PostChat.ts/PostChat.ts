@@ -1,16 +1,76 @@
 import { Response, Request } from "express";
+import Anthropic from "@anthropic-ai/sdk";
 import { streamClaudeResponse } from "../../Services/cloudeService";
 import { handleError } from "../../utils/handleError";
 
-export const ClaudeConexionController = async (req: Request, res: Response) => {
-  const { message, history = [] } = req.body;
+interface FileAttachment {
+  data: string;       // base64 sin prefijo data URI
+  mediaType: string;  // "image/jpeg" | "image/png" | "image/gif" | "image/webp" | "application/pdf"
+}
 
-  if (!message) {
-    handleError(res, 400, "Message_require", "Message required");
+function stripDataUriPrefix(data: string): string {
+  const commaIndex = data.indexOf(",");
+  return commaIndex !== -1 ? data.slice(commaIndex + 1) : data;
+}
+
+function buildUserContent(
+  message: string,
+  files?: FileAttachment[],
+): Anthropic.MessageParam["content"] {
+  if (!files || files.length === 0) return message;
+
+  const blocks: Anthropic.ContentBlockParam[] = [];
+
+  for (const file of files) {
+    const cleanData = stripDataUriPrefix(file.data);
+
+    if (
+      file.mediaType === "image/jpeg" ||
+      file.mediaType === "image/png" ||
+      file.mediaType === "image/gif" ||
+      file.mediaType === "image/webp"
+    ) {
+      blocks.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: file.mediaType,
+          data: cleanData,
+        },
+      });
+    } else if (file.mediaType === "application/pdf") {
+      blocks.push({
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: cleanData,
+        },
+      });
+    }
+  }
+
+  blocks.push({ type: "text", text: message || "Analiza este archivo." });
+  return blocks;
+}
+
+export const ClaudeConexionController = async (req: Request, res: Response) => {
+  const { message, history = [], files } = req.body as {
+    message: string;
+    history?: Anthropic.MessageParam[];
+    files?: FileAttachment[];
+  };
+
+  if (!message && (!files || files.length === 0)) {
+    handleError(res, 400, "Message_require", "Message or file required");
     return;
   }
 
-  const messages = [...history, { role: "user" as const, content: message }];
+  const userContent = buildUserContent(message ?? "", files);
+  const messages: Anthropic.MessageParam[] = [
+    ...history,
+    { role: "user", content: userContent },
+  ];
 
   let isClosed = false;
   let chunkCount = 0;
@@ -93,10 +153,11 @@ export const ClaudeConexionController = async (req: Request, res: Response) => {
     };
 
     const onStreamError = (err: unknown) => {
-      console.error("Claude stream error:", err);
+      const detail = err instanceof Error ? err.message : String(err);
+      console.error("Claude stream error:", detail);
       if (isClosed) return;
       res.write(
-        `data: ${JSON.stringify({ type: "error", message: "Stream error" })}\n\n`,
+        `data: ${JSON.stringify({ type: "error", message: detail })}\n\n`,
       );
       res.end();
     };
@@ -126,7 +187,7 @@ export const ClaudeGetStreamController = async (req: Request, res: Response) => 
     return;
   }
 
-  let history: Array<{ role: "user" | "assistant"; content: string }> = [];
+  let history: Anthropic.MessageParam[] = [];
 
   if (historyB64) {
     try {
@@ -137,7 +198,10 @@ export const ClaudeGetStreamController = async (req: Request, res: Response) => 
     }
   }
 
-  const messages = [...history, { role: "user" as const, content: message }];
+  const messages: Anthropic.MessageParam[] = [
+    ...history,
+    { role: "user", content: message },
+  ];
 
   let isClosed = false;
 

@@ -4,18 +4,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
-export async function streamClaudeResponse(
-  messages: Array<{ role: "user" | "assistant"; content: string }>,
-  onChunk: (text: string) => void,
-  onDone: () => void,
-  onError: (err: any) => void,
-) {
-  try {
-    const stream = await anthropic.messages.stream({
-      model: "claude-opus-4-6",
-      max_tokens: 4000,
-      temperature: 0.2,
-      system: `
+const SYSTEM_PROMPT = `
 Eres un copiloto de operaciones para Radii, empresa de Supply Chain
 para sectores Aerospace, Automotive e Industrial.
 
@@ -96,18 +85,67 @@ Supplier Match:
 
 Si el mensaje no está relacionado con operaciones o supply chain,
 responde que tu función es únicamente asistir en cotizaciones y seguimiento.
-`,
-      messages,
-    });
+`; 
 
-    for await (const event of stream) {
-      if (
-        event.type === "content_block_delta" &&
-        event.delta.type === "text_delta"
-      ) {
-        const text = event.delta.text;
-        if (text) onChunk(text);
+export async function streamClaudeResponse(
+  messages: Anthropic.MessageParam[],
+  onChunk: (text: string) => void,
+  onDone: () => void,
+  onError: (err: any) => void,
+  maxContinuations = 3,
+) {
+  try {
+    let currentMessages = [...messages];
+    let accumulatedText = "";
+    let continuationCount = 0;
+
+    while (continuationCount <= maxContinuations) {
+      let stopReason: string | null = null;
+      let chunkBuffer = "";
+
+      const stream = await anthropic.messages.stream({
+        model: "claude-opus-4-6",
+        max_tokens: 4000,
+        temperature: 0.2,
+        system: SYSTEM_PROMPT,
+        messages: currentMessages,
+      });
+
+      for await (const event of stream) {
+        if (
+          event.type === "content_block_delta" &&
+          event.delta.type === "text_delta"
+        ) {
+          const text = event.delta.text;
+          if (text) {
+            chunkBuffer += text;
+            accumulatedText += text;
+            onChunk(text);
+          }
+        }
+
+        if (event.type === "message_delta") {
+          stopReason = event.delta.stop_reason ?? null;
+        }
       }
+      if (stopReason !== "max_tokens") break;
+
+      continuationCount++;
+
+      if (continuationCount > maxContinuations) {
+        onChunk("\n\n *Respuesta truncada por longitud máxima.*");
+        break;
+      }
+
+      currentMessages = [
+        ...currentMessages,
+        { role: "assistant", content: accumulatedText },
+        {
+          role: "user",
+          content:
+            "Continúa exactamente desde donde te quedaste, sin repetir nada.",
+        },
+      ];
     }
 
     onDone();

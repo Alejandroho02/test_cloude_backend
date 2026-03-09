@@ -57,7 +57,7 @@ private middlewares() {
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Cache-Control', 'Accept'],
   }));
-  this.app.use(express.json());
+  this.app.use(express.json({ limit: "20mb" }));
 }
 private routesBuilder(app: any, paths: serverPaths) {
   for (const [key, path] of Object.entries(paths)) {
